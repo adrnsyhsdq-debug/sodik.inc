@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>☠ SKULL TETRIS ☠</title>
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Oswald:wght@300;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #0d0d0d;
+    --border: #2a2a2a;
+    --bone: #e8e8e8;
+    --bone-dim: #888;
+    --accent: #ffffff;
+    --glow: rgba(255,255,255,0.08);
+    --red: #cc2200;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--bone);
+    font-family: 'Oswald', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Animated bone pattern background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,0.015) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(255,255,255,0.01) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .skull-bg {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .skull-bg span {
+    position: absolute;
+    font-size: 1.2rem;
+    opacity: 0.04;
+    animation: floatSkull linear infinite;
+  }
+
+  @keyframes floatSkull {
+    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.04; }
+    90% { opacity: 0.04; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+  }
+
+  h1 {
+    font-family: 'Creepster', cursive;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    letter-spacing: 0.15em;
+    text-align: center;
+    color: var(--bone);
+    text-shadow: 0 0 20px rgba(255,255,255,0.15), 0 0 60px rgba(255,255,255,0.05);
+    position: relative;
+    z-index: 1;
+    margin-bottom: 0.3em;
+  }
+
+  h1 span { color: var(--red); }
+
+  .game-wrapper {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    position: relative;
+    z-index: 1;
+  }
+
+  .side-panel {
+    width: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+    position: relative;
+  }
+
+  .panel-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--glow) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .panel-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--bone-dim);
+    margin-bottom: 8px;
+    font-weight: 300;
+  }
+
+  .panel-value {
+    font-family: 'Creepster', cursive;
+    font-size: 1.8rem;
+    color: var(--bone);
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2);
+  }
+
+  #next-canvas {
+    display: block;
+    margin: 0 auto;
+    image-rendering: pixelated;
+  }
+
+  /* Main board */
+  #board-wrap {
+    position: relative;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    box-shadow:
+      0 0 0 1px #111,
+      0 0 30px rgba(0,0,0,0.8),
+      inset 0 0 60px rgba(0,0,0,0.6);
+  }
+
+  #board-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(255,255,255,0.015) 29px,
+      rgba(255,255,255,0.015) 30px
+    ), repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 29px,
+      rgba(255,255,255,0.015) 29px,
+      rgba(255,255,255,0.015) 30px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  #tetris-canvas {
+    display: block;
+    image-rendering: pixelated;
+    position: relative;
+    z-index: 0;
+  }
+
+  /* Overlay screens */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.88);
+    z-index: 10;
+    gap: 16px;
+    backdrop-filter: blur(2px);
+  }
+
+  .overlay.hidden { display: none; }
+
+  .overlay-skull {
+    font-size: 4rem;
+    animation: pulseSkull 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulseSkull {
+    0%, 100% { transform: scale(1) rotate(-5deg); }
+    50% { transform: scale(1.1) rotate(5deg); }
+  }
+
+  .overlay h2 {
+    font-family: 'Creepster', cursive;
+    font-size: 2.2rem;
+    letter-spacing: 0.1em;
+    color: var(--bone);
+    text-shadow: 0 0 20px rgba(255,255,255,0.3);
+  }
+
+  .overlay p {
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    color: var(--bone-dim);
+    text-transform: uppercase;
+  }
+
+  .btn-start {
+    background: transparent;
+    border: 1px solid var(--bone);
+    color: var(--bone);
+    font-family: 'Creepster', cursive;
+    font-size: 1.3rem;
+    letter-spacing: 0.2em;
+    padding: 10px 32px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-start::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--bone);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+  }
+
+  .btn-start:hover::before { transform: translateX(0); }
+  .btn-start:hover { color: #000; }
+  .btn-start span { position: relative; z-index: 1; }
+
+  /* Controls info */
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px;
+    font-size: 0.65rem;
+    line-height: 1.9;
+    color: var(--bone-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .controls .panel-label { margin-bottom: 6px; }
+
+  .key {
+    display: inline-block;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: var(--bone);
+    font-size: 0.6rem;
+    margin-right: 4px;
+  }
+
+  /* Line clear flash */
+  @keyframes flashRow {
+    0% { filter: brightness(0) invert(1); }
+    50% { filter: brightness(3); }
+    100% { filter: brightness(1); }
+  }
+
+  .level-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .level-skulls { color: var(--bone-dim); font-size: 0.8rem; letter-spacing: 2px; }
+
+  /* Sound toggle */
+  .sound-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--bone-dim);
+    font-size: 1.1rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .sound-btn:hover { border-color: var(--bone); color: var(--bone); }
+  .sound-btn.muted { opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<div class="skull-bg" id="skullBg"></div>
+
+<h1>☠ SKULL <span>TETRIS</span> ☠</h1>
+
+<div class="game-wrapper">
+  <!-- Left Panel -->
+  <div class="side-panel">
+    <div class="panel-box">
+      <div class="panel-label">Score</div>
+      <div class="panel-value" id="score">0</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Level</div>
+      <div class="panel-value" id="level">1</div>
+      <div class="level-skulls" id="levelSkulls">☠</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">Lines</div>
+      <div class="panel-value" id="lines">0</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-label">High Score</div>
+      <div class="panel-value" id="hiScore" style="font-size:1.2rem">0</div>
+    </div>
+    <button class="sound-btn" id="soundBtn" title="Toggle Sound">🔊 Sound</button>
+  </div>
+
+  <!-- Board -->
+  <div id="board-wrap">
+    <canvas id="tetris-canvas" width="300" height="600"></canvas>
+
+    <!-- Start Screen -->
+    <div class="overlay" id="startScreen">
+      <div class="overlay-skull">☠</div>
+      <h2>SKULL TETRIS</h2>
+      <p>Stack bones. Clear rows. Survive.</p>
+      <button class="btn-start" id="startBtn"><span>▶ BEGIN</span></button>
+      <p style="margin-top:4px; font-size:0.6rem">Arrow Keys + Space to play</p>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div class="overlay hidden" id="gameOverScreen">
+      <div class="overlay-skull">💀</div>
+      <h2>YOU DIED</h2>
+      <p id="finalScore">Score: 0</p>
+      <button class="btn-start" id="restartBtn"><span>↺ RISE AGAIN</span></button>
+    </div>
+
+    <!-- Pause Screen -->
+    <div class="overlay hidden" id="pauseScreen">
+      <div class="overlay-skull">☠</div>
+      <h2>PAUSED</h2>
+      <p>Press P to resume</p>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="side-panel">
+    <div class="panel-box">
+      <div class="panel-label">Next</div>
+      <canvas id="next-canvas" width="100" height="100"></canvas>
+    </div>
+    <div class="controls">
+      <div class="panel-label">Controls</div>
+      <div><span class="key">←→</span> Move</div>
+      <div><span class="key">↑</span> Rotate</div>
+      <div><span class="key">↓</span> Soft Drop</div>
+      <div><span class="key">Space</span> Hard Drop</div>
+      <div><span class="key">P</span> Pause</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Sound Engine (Web Audio API) ───────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let soundEnabled = true;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playTone(freq, type, duration, vol = 0.3, decay = true) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    if (decay) gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+function playMove()      { playTone(180, 'square', 0.06, 0.15); }
+function playRotate()    { playTone(280, 'square', 0.08, 0.18); }
+function playDrop()      { playTone(100, 'sawtooth', 0.12, 0.25); }
+function playLineClear(n) {
+  const freqs = [220, 330, 440, 550];
+  freqs.slice(0, n).forEach((f, i) => {
+    setTimeout(() => playTone(f * 1.5, 'square', 0.15, 0.4), i * 40);
+  });
+  if (n === 4) { // Tetris!
+    setTimeout(() => playTone(880, 'square', 0.3, 0.5), 200);
+    setTimeout(() => playTone(1100, 'square', 0.3, 0.5), 340);
+  }
+}
+function playGameOver() {
+  const melody = [440, 330, 220, 165, 110];
+  melody.forEach((f, i) => setTimeout(() => playTone(f, 'sawtooth', 0.3, 0.4), i * 160));
+}
+function playLevelUp() {
+  [330, 440, 550, 660].forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.12, 0.35), i * 80));
+}
+
+// Sound toggle
+document.getElementById('soundBtn').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('soundBtn');
+  btn.textContent = soundEnabled ? '🔊 Sound' : '🔇 Muted';
+  btn.classList.toggle('muted', !soundEnabled);
+});
+
+// ─── Background Skulls ───────────────────────────────────────────────────────
+const bgEl = document.getElementById('skullBg');
+const SKULL_CHARS = ['☠', '💀', '🦴', '☠', '☠'];
+for (let i = 0; i < 18; i++) {
+  const s = document.createElement('span');
+  s.textContent = SKULL_CHARS[Math.floor(Math.random() * SKULL_CHARS.length)];
+  s.style.left = Math.random() * 100 + 'vw';
+  s.style.animationDuration = (12 + Math.random() * 20) + 's';
+  s.style.animationDelay = (Math.random() * 20) + 's';
+  s.style.fontSize = (0.8 + Math.random() * 1.5) + 'rem';
+  bgEl.appendChild(s);
+}
+
+// ─── Tetris Engine ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('tetris-canvas');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next-canvas');
+const nCtx = nextCanvas.getContext('2d');
+
+const COLS = 10, ROWS = 20, CELL = 30;
+
+// Black & white skull-themed piece colors (patterns)
+const PIECES = {
+  I: { shape: [[1,1,1,1]], color: '#e8e8e8' },
+  O: { shape: [[1,1],[1,1]], color: '#c0c0c0' },
+  T: { shape: [[0,1,0],[1,1,1]], color: '#d0d0d0' },
+  S: { shape: [[0,1,1],[1,1,0]], color: '#b8b8b8' },
+  Z: { shape: [[1,1,0],[0,1,1]], color: '#a8a8a8' },
+  J: { shape: [[1,0,0],[1,1,1]], color: '#f0f0f0' },
+  L: { shape: [[0,0,1],[1,1,1]], color: '#989898' },
+};
+const PIECE_KEYS = Object.keys(PIECES);
+
+// Skull mini-icons for blocks (drawn procedurally)
+function drawBlock(c, x, y, color, size) {
+  const s = size || CELL;
+  const px = x * s, py = y * s;
+
+  // Base block
+  c.fillStyle = color;
+  c.fillRect(px + 1, py + 1, s - 2, s - 2);
+
+  // Inner shade
+  const lum = parseInt(color.slice(1), 16) > 0x888888 ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.08)';
+  c.fillStyle = lum;
+  c.fillRect(px + 3, py + 3, s - 6, s - 6);
+
+  // Tiny skull icon
+  const cx2 = px + s / 2, cy2 = py + s / 2;
+  const r = s * 0.18;
+  const skullColor = parseInt(color.slice(1), 16) > 0x888888 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.2)';
+
+  c.fillStyle = skullColor;
+  // Skull head
+  c.beginPath();
+  c.arc(cx2, cy2 - r * 0.3, r, 0, Math.PI * 2);
+  c.fill();
+  // Jaw
+  c.fillRect(cx2 - r * 0.7, cy2 + r * 0.3, r * 1.4, r * 0.6);
+  // Eye sockets
+  c.fillStyle = parseInt(color.slice(1), 16) > 0x888888 ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)';
+  c.beginPath(); c.arc(cx2 - r * 0.35, cy2 - r * 0.35, r * 0.22, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(cx2 + r * 0.35, cy2 - r * 0.35, r * 0.22, 0, Math.PI * 2); c.fill();
+}
+
+// Ghost block
+function drawGhostBlock(c, x, y, size) {
+  const s = size || CELL;
+  c.strokeStyle = 'rgba(255,255,255,0.12)';
+  c.lineWidth = 1;
+  c.strokeRect(x * s + 1, y * s + 1, s - 2, s - 2);
+}
+
+// State
+let board, currentPiece, nextPiece, score, level, lines, hiScore, gameLoop, paused, gameOver;
+
+function initBoard() {
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+}
+
+function randomPiece() {
+  const key = PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)];
+  const p = PIECES[key];
+  return {
+    shape: p.shape.map(r => [...r]),
+    color: p.color,
+    x: Math.floor(COLS / 2) - Math.floor(p.shape[0].length / 2),
+    y: 0
+  };
+}
+
+function rotate(shape) {
+  const rows = shape.length, cols = shape[0].length;
+  const result = Array.from({ length: cols }, () => Array(rows).fill(0));
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      result[c][rows - 1 - r] = shape[r][c];
+  return result;
+}
+
+function valid(shape, ox, oy) {
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      if (shape[r][c]) {
+        const nx = ox + c, ny = oy + r;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+        if (ny >= 0 && board[ny][nx]) return false;
+      }
+  return true;
+}
+
+function lockPiece() {
+  currentPiece.shape.forEach((row, r) => {
+    row.forEach((val, c) => {
+      if (val) {
+        const ny = currentPiece.y + r;
+        if (ny < 0) { endGame(); return; }
+        board[ny][currentPiece.x + c] = currentPiece.color;
+      }
+    });
+  });
+  playDrop();
+  clearLines();
+  currentPiece = nextPiece;
+  nextPiece = randomPiece();
+  if (!valid(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+    endGame();
+  }
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (board[r].every(c => c !== null)) {
+      board.splice(r, 1);
+      board.unshift(Array(COLS).fill(null));
+      cleared++;
+      r++;
+    }
+  }
+  if (cleared > 0) {
+    const pts = [0, 100, 300, 500, 800];
+    score += (pts[cleared] || 800) * level;
+    lines += cleared;
+    playLineClear(cleared);
+    const newLevel = Math.floor(lines / 10) + 1;
+    if (newLevel > level) {
+      level = newLevel;
+      playLevelUp();
+      clearInterval(gameLoop);
+      startLoop();
+    }
+    updateUI();
+    if (score > hiScore) {
+      hiScore = score;
+      localStorage.setItem('skullTetrisHi', hiScore);
+    }
+  }
+}
+
+function ghostY() {
+  let gy = currentPiece.y;
+  while (valid(currentPiece.shape, currentPiece.x, gy + 1)) gy++;
+  return gy;
+}
+
+function draw() {
+  // Clear
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw board pieces
+  board.forEach((row, r) => {
+    row.forEach((color, c) => {
+      if (color) drawBlock(ctx, c, r, color);
+    });
+  });
+
+  if (currentPiece && !gameOver) {
+    // Ghost
+    const gy = ghostY();
+    if (gy !== currentPiece.y) {
+      currentPiece.shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (val) drawGhostBlock(ctx, currentPiece.x + c, gy + r);
+        });
+      });
+    }
+
+    // Active piece
+    currentPiece.shape.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val) drawBlock(ctx, currentPiece.x + c, currentPiece.y + r, currentPiece.color);
+      });
+    });
+  }
+
+  // Draw next piece
+  nCtx.fillStyle = '#0d0d0d';
+  nCtx.fillRect(0, 0, 100, 100);
+  if (nextPiece) {
+    const ns = 20;
+    const offX = Math.floor((5 - nextPiece.shape[0].length) / 2);
+    const offY = Math.floor((5 - nextPiece.shape.length) / 2);
+    nextPiece.shape.forEach((row, r) => {
+      row.forEach((val, c) => {
+        if (val) drawBlock(nCtx, offX + c, offY + r, nextPiece.color, ns);
+      });
+    });
+  }
+}
+
+function updateUI() {
+  document.getElementById('score').textContent = score.toLocaleString();
+  document.getElementById('level').textContent = level;
+  document.getElementById('lines').textContent = lines;
+  document.getElementById('hiScore').textContent = hiScore.toLocaleString();
+  document.getElementById('levelSkulls').textContent = '☠'.repeat(Math.min(level, 10));
+}
+
+function startLoop() {
+  const speed = Math.max(80, 700 - (level - 1) * 60);
+  gameLoop = setInterval(() => {
+    if (paused || gameOver) return;
+    if (valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+      currentPiece.y++;
+    } else {
+      lockPiece();
+    }
+    draw();
+  }, speed);
+}
+
+function startGame() {
+  initBoard();
+  score = 0; level = 1; lines = 0;
+  hiScore = parseInt(localStorage.getItem('skullTetrisHi') || '0');
+  paused = false; gameOver = false;
+  currentPiece = randomPiece();
+  nextPiece = randomPiece();
+  updateUI();
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('pauseScreen').classList.add('hidden');
+  clearInterval(gameLoop);
+  startLoop();
+  draw();
+}
+
+function endGame() {
+  gameOver = true;
+  clearInterval(gameLoop);
+  playGameOver();
+  document.getElementById('finalScore').textContent = 'Score: ' + score.toLocaleString();
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
+function togglePause() {
+  if (gameOver) return;
+  paused = !paused;
+  document.getElementById('pauseScreen').classList.toggle('hidden', !paused);
+}
+
+// Input
+document.addEventListener('keydown', e => {
+  if (gameOver || !currentPiece) return;
+  if (e.key === 'p' || e.key === 'P') { togglePause(); return; }
+  if (paused) return;
+
+  switch(e.key) {
+    case 'ArrowLeft':
+      if (valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+        currentPiece.x--;
+        playMove();
+      }
+      break;
+    case 'ArrowRight':
+      if (valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
+        currentPiece.x++;
+        playMove();
+      }
+      break;
+    case 'ArrowDown':
+      if (valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+        currentPiece.y++;
+        score += 1;
+        updateUI();
+      } else { lockPiece(); }
+      break;
+    case 'ArrowUp': {
+      const rot = rotate(currentPiece.shape);
+      if (valid(rot, currentPiece.x, currentPiece.y)) {
+        currentPiece.shape = rot;
+        playRotate();
+      } else if (valid(rot, currentPiece.x - 1, currentPiece.y)) {
+        currentPiece.shape = rot; currentPiece.x--;
+        playRotate();
+      } else if (valid(rot, currentPiece.x + 1, currentPiece.y)) {
+        currentPiece.shape = rot; currentPiece.x++;
+        playRotate();
+      }
+      break;
+    }
+    case ' ':
+      e.preventDefault();
+      const gy = ghostY();
+      score += (gy - currentPiece.y) * 2;
+      currentPiece.y = gy;
+      lockPiece();
+      updateUI();
+      break;
+  }
+  draw();
+});
+
+// Touch / swipe support
+let touchX = null, touchY = null;
+canvas.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; touchY = e.touches[0].clientY; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', e => {
+  if (!touchX || !touchY || !currentPiece || paused || gameOver) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx < -20 && valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) { currentPiece.x--; playMove(); }
+    else if (dx > 20 && valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) { currentPiece.x++; playMove(); }
+  } else {
+    if (dy < -20) {
+      const rot = rotate(currentPiece.shape);
+      if (valid(rot, currentPiece.x, currentPiece.y)) { currentPiece.shape = rot; playRotate(); }
+    } else if (dy > 20) {
+      const gy = ghostY();
+      currentPiece.y = gy;
+      lockPiece();
+    }
+  }
+  draw();
+  touchX = touchY = null;
+  e.preventDefault();
+}, { passive: false });
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+// Init hi score display
+document.getElementById('hiScore').textContent = (parseInt(localStorage.getItem('skullTetrisHi') || '0')).toLocaleString();
+
+// Draw initial frame
+initBoard();
+draw();
+</script>
+
+<!-- Ad injection as requested -->
+<script async="async" data-cfasync="false" src="https://pl29585103.effectivecpmnetwork.com/23bcb05837d34187558298519c15bcd4/invoke.js"></script>
+<div id="container-23bcb05837d34187558298519c15bcd4"></div>
+
+</body>
+</html>
